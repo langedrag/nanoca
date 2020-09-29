@@ -1,0 +1,21 @@
+#!/bin/bash
+# Config
+dir=~/ca
+crl_days=30
+
+# Create a certificate revocation list and sign it with the CA certificate
+openssl ca \
+	-gencrl \
+	-cert $dir/cacert.pem \
+	-keyfile $dir/cakey.pem \
+	-crldays $crl_days \
+	-md sha256 \
+	-out crl.pem \
+	-config <(cat <<EOF
+[ ca ]
+default_ca=nano_ca
+[ nano_ca ]
+database=$dir/.certdb
+RANDFILE=$dir/.rnd
+EOF
+);

@@ -1,0 +1,20 @@
+#!/bin/bash
+echo $1 | grep -E -q '^(([a-zA-Z0-9])+\.)+[a-zA-Z]{2,}$' \
+	|| { echo "ERROR: A PEM file containing the certificate to revoke must be passed as an argument." >&2; exit 1; };
+certfile=$1;
+
+dir=~/ca
+openssl ca \
+	-revoke $certfile \
+	-cert $dir/cacert.pem \
+	-keyfile $dir/cakey.pem \
+	-md sha256 \
+	-config <(cat <<EOF
+[ ca ]
+default_ca=nano_ca
+[ nano_ca ]
+database=$dir/.certdb
+RANDFILE=$dir/.rnd
+prompt=no
+EOF
+);

@@ -1,0 +1,67 @@
+#!/bin/bash
+
+# Config
+dir=~/ca
+ca_name="Acme CA"
+org_name="Acme"; 
+country_code="US"; 
+
+# Check if CA allready initialized
+if [ -f "$dir/cakey.pem" ]; then { echo "ERROR: CA allready initialized! Execute 'rm -rf $dir' to start over. Be sure to know what you do!" >&2; exit 1;} fi
+
+# Create inital seed for the random number generator
+umask 077
+mkdir $dir/certs -p
+dd if=/dev/urandom of=$dir/.rnd bs=256 count=1 status=none
+
+# Generate RSA key pair (private + public) for CA
+# Use the private RSA key to create a self signed certificate
+# containing certificate attributes (extensions) which
+# claims this certificate to be a CA which can be used
+# to sign both certificates and keys.
+# i.e. to create a minimal root CA certificate
+umask 237
+openssl req -new -x509 \
+	> /dev/null 2>&1 \
+	-newkey rsa:2048 \
+	-days 7300 \
+	-sha256 -nodes \
+	-out $dir/cacert.pem \
+	-keyout $dir/cakey.pem \
+	-set_serial 0 \
+	-rand $dir/.rnd \
+	-config <(cat <<EOF
+[req]
+distinguished_name=DN
+x509_extensions=V3_ext
+prompt=no
+[DN]
+CN=$ca_name
+O=$org_name
+C=$country_code
+[V3_ext]
+subjectKeyIdentifier=hash
+basicConstraints=critical, CA:true
+keyUsage=critical, keyCertSign, cRLSign
+EOF
+)
+
+if [ $? -eq 0 ]; then
+	echo "Successfully initialized CA.";
+else
+	echo "ERROR: Failed to initialize CA." 2>&1; exit 1;
+fi
+
+# Create folder for storing a copy of issued certificates
+umask 077
+mkdir $dir/certs -p
+
+# Create empty database files for storing data about issued certificates
+touch $dir/.certdb
+
+# Ensure that certificate subjects (e.g. hostsdn) must be unique, i.e.
+# CA must revoke any certificate issued to a subject before issuing a new
+echo "unique_subject = yes" > $dir/.certdb.attr
+
+# Issue the first certificates with serial number=1 (will auto increment)
+echo 01 > $dir/.serial

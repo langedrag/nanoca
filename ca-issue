@@ -1,0 +1,103 @@
+#!/bin/bash
+
+# Config
+dir=~/ca
+crl_dist="URI:http://acme.example.com/crl.pem"
+key_size=2048
+crt_days=3650
+crl_days=30
+
+# Prereq validation
+if [ ! -f "$dir/cakey.pem" ]; then { echo "ERROR: CA not initialized. No CA key found." >&2; exit 1;} fi
+
+# Input validation
+echo $1 | grep -E -q '^(([a-zA-Z0-9])+\.)+[a-zA-Z]{2,}$' \
+	|| { echo "ERROR: The FQDN for the host for which to create a certificate must be provided as an argument." >&2; exit 1; };
+hostdn=$1;
+
+# Generate RSA key pair (private + pubic) for the subject
+#dd if=/dev/urandom of=$dir/.rnd bs=256 count=1 status=none
+openssl genrsa \
+        > /dev/null 2>& 1 \
+	-out $hostdn.key \
+	-rand $dir/.rnd \
+	$key_size 
+if [ $? -ne 0 ]; then echo "ERROR: Failed to generate RSA key pair"; exit 1; fi;
+
+# Use subjects private RSA key to sign a request for a certificate
+#dd if=/dev/urandom of=$dir/.rnd bs=256 count=1 status=none
+openssl req \
+        > /dev/null 2>& 1 \
+	-new \
+	-sha256 \
+	-rand $dir/.rnd \
+	-key $hostdn.key \
+	-out $hostdn.csr \
+	-keyout $hostdn.key \
+	-config <(cat <<EOF
+[req]
+distinguished_name=dn
+x509_extensions=v3_req
+prompt=no
+[dn]
+CN=$hostdn
+[v3_req]
+subjectAltName=@alt_names
+[alt_names]
+DNS.1=$hostdn
+EOF
+); 
+if [ $? -ne 0 ]; then echo "ERROR: Failed to sign certificate request"; exit 2; fi;
+
+# Use the CA's private key to sign subjects request for a certificate
+# i.e. issue certificate to the subject
+#dd if=/dev/urandom of=$dir/.rnd bs=256 count=1 status=none
+openssl ca \
+        > $dir/lasterror 2>& 1\
+	-notext \
+	-in $hostdn.csr \
+	-out $hostdn.crt \
+	-rand $dir/.rnd \
+	-batch \
+	-outdir $dir/certs \
+	-cert $dir/cacert.pem \
+	-keyfile $dir/cakey.pem \
+	-days $crt_days \
+	-md sha256 \
+	-crldays $crl_days \
+	-noemailDN \
+	-config <(cat <<EOF
+[ ca ]
+default_ca=nano_ca 	    # The default ca section
+[ nano_ca ]
+database=$dir/.certdb       # certificate database
+#rand_serial=yes
+serial=$dir/.serial         # serial number file
+distinguished_name=dn       # dn policy reference, see below
+x509_extensions=v3_req      # v3 policy reference, see below
+policy=nano_policy          # general policy reference, see below
+copy_extensions=copy        # Don't copy extensions from request
+name_opt=ca_default
+cert_opt=ca_default
+prompt=no
+[ dn ]
+CN=$hostdn
+[ v3_req ]
+subjectAltName=@alt_names
+extendedKeyUsage=serverAuth,clientAuth
+basicConstraints=critical,CA:FALSE
+keyUsage=critical,digitalSignature,keyEncipherment
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid,issuer
+crlDistributionPoints=$crl_dist
+[ alt_names ]
+DNS.1=$hostdn
+[ nano_policy ]
+commonName=supplied
+EOF
+); 
+if [ $? -ne 0 ]; then 
+	echo "ERROR: Failed to issue certificate request ($dir/lasterror)"; exit 3; 
+else
+	echo "Successfully issued certificate for $hostdn"
+fi;
