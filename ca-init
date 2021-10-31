@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Path to CA data
 dir=~/.nanoca
@@ -7,9 +7,12 @@ dir=~/.nanoca
 if [ -f "$dir/cakey.pem" ]; then { echo "ERROR: CA allready initialized! Execute 'rm -rf $dir' to start over. Be sure to know what you do!" >&2; exit 1;} fi
 
 # Ask for minimal set of identificators to be used in CA certificate
-read -e -p "CA name ('ca.example.com'): " ca_name
-read -e -p "Organisation name ('My Company'): " org_name
-read -e -p "Country Code ('US'): " country_code
+printf "CA name ('ca.example.com'): "
+read ca_name
+printf "Organisation name ('My Company'): "
+read org_name
+printf "Country Code ('US'): " c
+read country_code
 
 
 # Create inital seed for the random number generator
@@ -32,7 +35,7 @@ openssl req -new -x509 \
 	-keyout $dir/cakey.pem \
 	-set_serial 0 \
 	-rand $dir/.rnd \
-	-config <(cat <<EOF
+	-config /dev/fd/3 3<<EOF
 [req]
 distinguished_name=DN
 x509_extensions=V3_ext
@@ -46,7 +49,6 @@ subjectKeyIdentifier=hash
 basicConstraints=critical, CA:true
 keyUsage=critical, keyCertSign, cRLSign
 EOF
-)
 
 if [ $? -eq 0 ]; then
 	echo "Successfully initialized CA.";
