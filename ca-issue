@@ -1,13 +1,14 @@
 #!/bin/bash
 
 # Config
-dir=~/ca
 crl_dist="URI:http://acme.example.com/crl.pem"
 key_size=2048
 crt_days=3650
 crl_days=30
 
-# Prereq validation
+dir=~/.nanoca
+
+# Prereq validation 
 if [ ! -f "$dir/cakey.pem" ]; then { echo "ERROR: CA not initialized. No CA key found." >&2; exit 1;} fi
 
 # Input validation
@@ -15,8 +16,8 @@ echo $1 | grep -E -q '^(([a-zA-Z0-9])+\.)+[a-zA-Z]{2,}$' \
 	|| { echo "ERROR: The FQDN for the host for which to create a certificate must be provided as an argument." >&2; exit 1; };
 hostdn=$1;
 
-# Generate RSA key pair (private + pubic) for the subject
-#dd if=/dev/urandom of=$dir/.rnd bs=256 count=1 status=none
+# Generate RSA private and public key pair on behalf of the subject
+dd if=/dev/urandom of=$dir/.rnd bs=1024 count=1 status=none
 openssl genrsa \
         > /dev/null 2>& 1 \
 	-out $hostdn.key \
@@ -24,8 +25,8 @@ openssl genrsa \
 	$key_size 
 if [ $? -ne 0 ]; then echo "ERROR: Failed to generate RSA key pair"; exit 1; fi;
 
-# Use subjects private RSA key to sign a request for a certificate
-#dd if=/dev/urandom of=$dir/.rnd bs=256 count=1 status=none
+# Use the subjects private key to create a signed request to issue a certificte 
+dd if=/dev/urandom of=$dir/.rnd bs=1024 count=1 status=none
 openssl req \
         > /dev/null 2>& 1 \
 	-new \
@@ -49,9 +50,9 @@ EOF
 ); 
 if [ $? -ne 0 ]; then echo "ERROR: Failed to sign certificate request"; exit 2; fi;
 
-# Use the CA's private key to sign subjects request for a certificate
+# Use the CA's private key to sign the certificate request file
 # i.e. issue certificate to the subject
-#dd if=/dev/urandom of=$dir/.rnd bs=256 count=1 status=none
+dd if=/dev/urandom of=$dir/.rnd bs=1024 count=1 status=none
 openssl ca \
         > $dir/lasterror 2>& 1\
 	-notext \
@@ -96,8 +97,22 @@ DNS.1=$hostdn
 commonName=supplied
 EOF
 ); 
-if [ $? -ne 0 ]; then 
-	echo "ERROR: Failed to issue certificate request ($dir/lasterror)"; exit 3; 
-else
-	echo "Successfully issued certificate for $hostdn"
-fi;
+if [ $? -ne 0 ]
+then 
+   echo "ERROR: Failed to issue certificate request ($dir/lasterror)"; exit 1; 
+fi
+
+secret=`tr -dc A-Za-z0-9 < /dev/urandom | head -c16`
+echo $secret > $hostdn.pfx.secret
+openssl pkcs12 \
+	-export \
+	-out $hostdn.pfx \
+	-in $hostdn.crt \
+	-inkey $hostdn.key \
+	-passout pass:$secret
+if [ $? -ne 0 ]
+then
+   echo "ERROR: Failed to create PKCS 12 file $hostdn.pfx" exit 1;
+fi
+shred -uz $hostdn.key
+rm $hostdn.csr

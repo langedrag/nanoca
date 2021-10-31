@@ -3,7 +3,7 @@ echo $1 | grep -E -q '^(([a-zA-Z0-9])+\.)+[a-zA-Z]{2,}$' \
 	|| { echo "ERROR: A PEM file containing the certificate to revoke must be passed as an argument." >&2; exit 1; };
 certfile=$1;
 
-dir=~/ca
+dir=~/.nanoca
 openssl ca \
 	-revoke $certfile \
 	-cert $dir/cacert.pem \

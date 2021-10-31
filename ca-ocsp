@@ -1,0 +1,3 @@
+#!/bin/bash
+dir=~/.nanoca
+openssl ocsp -index $dir/.certdb -CA $dir/cacert.pem -rsigner $dir/cacert.pem -rkey $dir/cakey.pem -port 80

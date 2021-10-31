@@ -1,6 +1,6 @@
 #!/bin/bash
 # Config
-dir=~/ca
+dir=~/.nanoca
 crl_days=30
 
 # Create a certificate revocation list and sign it with the CA certificate

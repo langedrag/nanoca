@@ -1,25 +1,27 @@
 #!/bin/bash
 
-# Config
-dir=~/ca
-ca_name="Acme CA"
-org_name="Acme"; 
-country_code="US"; 
+# Path to CA data
+dir=~/.nanoca
 
-# Check if CA allready initialized
+# Check if CA is allready initialized
 if [ -f "$dir/cakey.pem" ]; then { echo "ERROR: CA allready initialized! Execute 'rm -rf $dir' to start over. Be sure to know what you do!" >&2; exit 1;} fi
+
+# Ask for minimal set of identificators to be used in CA certificate
+read -e -p "CA name ('ca.example.com'): " ca_name
+read -e -p "Organisation name ('My Company'): " org_name
+read -e -p "Country Code ('US'): " country_code
+
 
 # Create inital seed for the random number generator
 umask 077
 mkdir $dir/certs -p
-dd if=/dev/urandom of=$dir/.rnd bs=256 count=1 status=none
+dd if=/dev/urandom of=$dir/.rnd bs=1024 count=1 status=none
 
-# Generate RSA key pair (private + public) for CA
+# Generate RSA key pair (private + public) for CA.
 # Use the private RSA key to create a self signed certificate
 # containing certificate attributes (extensions) which
 # claims this certificate to be a CA which can be used
 # to sign both certificates and keys.
-# i.e. to create a minimal root CA certificate
 umask 237
 openssl req -new -x509 \
 	> /dev/null 2>&1 \
@@ -56,7 +58,7 @@ fi
 umask 077
 mkdir $dir/certs -p
 
-# Create empty database files for storing data about issued certificates
+# Create empty database file for storing data about issued certificates
 touch $dir/.certdb
 
 # Ensure that certificate subjects (e.g. hostsdn) must be unique, i.e.
