@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Config
 crl_dist="URI:http://acme.example.com/crl.pem"
@@ -35,7 +35,7 @@ openssl req \
 	-key $hostdn.key \
 	-out $hostdn.csr \
 	-keyout $hostdn.key \
-	-config <(cat <<EOF
+	-config /dev/fd/3 3<<EOF
 [req]
 distinguished_name=dn
 x509_extensions=v3_req
@@ -47,7 +47,6 @@ subjectAltName=@alt_names
 [alt_names]
 DNS.1=$hostdn
 EOF
-); 
 if [ $? -ne 0 ]; then echo "ERROR: Failed to sign certificate request"; exit 2; fi;
 
 # Use the CA's private key to sign the certificate request file
@@ -67,7 +66,7 @@ openssl ca \
 	-md sha256 \
 	-crldays $crl_days \
 	-noemailDN \
-	-config <(cat <<EOF
+	-config /dev/fd/3 3<<EOF
 [ ca ]
 default_ca=nano_ca 	    # The default ca section
 [ nano_ca ]
@@ -96,7 +95,6 @@ DNS.1=$hostdn
 [ nano_policy ]
 commonName=supplied
 EOF
-); 
 if [ $? -ne 0 ]
 then 
    echo "ERROR: Failed to issue certificate request ($dir/lasterror)"; exit 1; 
