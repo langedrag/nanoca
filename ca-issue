@@ -38,7 +38,7 @@ openssl req \
 	-config /dev/fd/3 3<<EOF
 [req]
 distinguished_name=dn
-x509_extensions=v3_req
+req_extensions=v3_req
 prompt=no
 [dn]
 CN=$hostdn
@@ -50,7 +50,7 @@ EOF
 if [ $? -ne 0 ]; then echo "ERROR: Failed to sign certificate request"; exit 2; fi;
 
 # Use the CA's private key to sign the certificate request file
-# i.e. issue certificate to the subject
+# i.e. issue certificate to the subject 
 dd if=/dev/urandom of=$dir/.rnd bs=1024 count=1 status=none
 openssl ca \
         > $dir/lasterror 2>& 1\
