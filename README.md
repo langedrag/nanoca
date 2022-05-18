@@ -1,5 +1,5 @@
 # nanoca
-Absolute minimal CA based openssl.
+Absolute minimal CA based on openssl and bash.
 
 ## Install
 
