@@ -30,11 +30,9 @@ dd if=/dev/urandom of=$dir/.rnd bs=1024 count=1 status=none
 openssl req \
         > /dev/null 2>& 1 \
 	-new \
-	-sha256 \
 	-rand $dir/.rnd \
 	-key $hostdn.key \
 	-out $hostdn.csr \
-	-keyout $hostdn.key \
 	-config /dev/fd/3 3<<EOF
 [req]
 distinguished_name=dn
